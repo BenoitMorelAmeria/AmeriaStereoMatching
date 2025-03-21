@@ -79,15 +79,15 @@ int main()
 	int P1 = 100;
 	int P2 = 1000;
 	int halfWindowSize = 2;
-	float uniquenessRatio = 0.95;
+	float uniquenessRatio = 0.25;
 	cv::namedWindow("parameters", cv::WINDOW_AUTOSIZE);
 	cv::createTrackbar("P1", "parameters", &P1, 800);
 	cv::createTrackbar("P2", "parameters", &P2, 2000);
 	cv::createTrackbar("halfWindowSize", "parameters", &halfWindowSize, 6);
 	createFloatTrackbar("uniquenessRatio", "parameters", uniquenessRatio, 1.0f);
-
+	 
 	while (true) {
-		 
+		  
 
 		// update trackbar values 
 		P1 = cv::getTrackbarPos("P1", "parameters");
@@ -111,15 +111,17 @@ int main()
 		bool debug = true;  
 		  
 		if (debug) {  
-			cv::Mat disparityU8;
-			disparity.convertTo(disparityU8, CV_8U, 1.0f / 16.0f);
-			// convert disparity to colored map for visualization
-			 
-			cv::Mat normalizedDisparity;
-			cv::normalize(disparityU8, normalizedDisparity, 0, 255, cv::NORM_MINMAX, CV_8U);
-			cv::Mat disparityColor; 
-			cv::applyColorMap(normalizedDisparity, disparityColor, cv::COLORMAP_JET);
-			cv::imshow("disparity color", disparityColor);
+			cv::Mat disparityFloat;
+			disparity.convertTo(disparityFloat, CV_32F);
+
+			// normalize and convert to color
+			cv::Mat disparityColor;
+			cv::normalize(disparityFloat, disparityFloat, 0, 255, cv::NORM_MINMAX);
+			disparityFloat.convertTo(disparityColor, CV_8U);
+			cv::applyColorMap(disparityColor, disparityColor, cv::COLORMAP_JET);
+			cv::imshow("disparity", disparityColor);
+
+
 			//cv::imshow("left", left);
 			cv::waitKey(1);  // Wait 30 ms (or any appropriate delay)
 		}

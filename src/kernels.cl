@@ -147,14 +147,14 @@ __kernel void horizontalAggregation(
 }
 
 #define INVALID_DISP 0
+#define DISP_SCALE 16
 
 __kernel void computeBestDisparity(__global float* aggregatedCost,   // Input aggregated cost function
     __global ushort* disparityMap,  // Output best disparity map
     const int width,            // Width of the image
     const int height,           // Height of the image
     const int disparityRange,   // Disparity range
-    float uniquenessRatio
-    ) {    
+    float uniquenessRatio    ) {    
 
     int idx = get_global_id(0);
     int x = idx % width;
@@ -187,12 +187,28 @@ __kernel void computeBestDisparity(__global float* aggregatedCost,   // Input ag
     for (int d = 0; d < disparityRange; d++) {
 
         float cost = aggregatedCost[costIndexOffset + d];
-        if ((minCost > cost * uniquenessRatio) && (abs(bestDisparity - d) > 2)) {
+        if ((minCost > cost * uniquenessRatio) && (abs(bestDisparity - d) > 1)) {
             bestDisparity = INVALID_DISP;
         }
     }
+
+
+	if (bestDisparity > 0 && bestDisparity < disparityRange - 1) {
+		float c0 = aggregatedCost[costIndexOffset + bestDisparity - 1];
+		float c1 = aggregatedCost[costIndexOffset + bestDisparity];
+		float c2 = aggregatedCost[costIndexOffset + bestDisparity + 1];
+		float w0 = 1.0f / (fabs(c1 - c0) + 1.0f);
+		float w2 = 1.0f / (fabs(c1 - c2) + 1.0f);
+		float subpixelOffset = (w2 - w0) / (w0 + w2);
+		bestDisparity = bestDisparity * DISP_SCALE + subpixelOffset * DISP_SCALE;
+    }
+    else {
+		bestDisparity = INVALID_DISP;
+    }
+
+
     // Store the best disparity (as unsigned short) for the current pixel
-    disparityMap[y * width + x] = (ushort)bestDisparity * 16;
+    disparityMap[y * width + x] = (ushort)bestDisparity;
 }
 
 
