@@ -29,7 +29,7 @@ float getFloatTrackBarPos(const std::string& name, const std::string& windowName
 
 int main() 
 {
-
+	  
 	int maxDisparity = 64;
 
 
@@ -104,16 +104,16 @@ int main()
 
 		bestDisparityKernel.setArguments(aggregatedBuffer, disparityBuffer, width, height, maxDisparity, uniquenessRatio);
 		bestDisparityKernel.runKernel(left.cols * left.rows);
-
+		 
 		fillMatFromOpenCLBuffer(disparity, disparityBuffer, manager.getContext(), manager.getCommandQueue());
+		    
+		  
+		bool debug = true;   
 		   
-		  
-		bool debug = true;  
-		  
 		if (debug) {  
 			cv::Mat disparityFloat;
 			disparity.convertTo(disparityFloat, CV_32F);
-
+			  
 			// normalize and convert to color
 			cv::Mat disparityColor;
 			cv::normalize(disparityFloat, disparityFloat, 0, 255, cv::NORM_MINMAX);

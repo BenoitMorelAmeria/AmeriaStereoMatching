@@ -23,7 +23,7 @@ bool HorizontalAggregationKernel::setArguments(cl_mem costBuffer,
 	err |= clSetKernelArg(kernel, i++, sizeof(int), &width);
 	err |= clSetKernelArg(kernel, i++, sizeof(int), &height);
 	err |= clSetKernelArg(kernel, i++, sizeof(int), &maxDisparity);
-	float p1 = P1;
+	float p1 = P1; 
 	float p2 = P2;
 	err |= clSetKernelArg(kernel, i++, sizeof(float), &p1);
 	err |= clSetKernelArg(kernel, i++, sizeof(float), &p2);
@@ -37,21 +37,31 @@ bool HorizontalAggregationKernel::setArguments(cl_mem costBuffer,
 bool HorizontalAggregationKernel::runKernel(size_t globalSize)
 {
 #ifndef DISABLE_KERNEL
-	cl_int err;
-	// 4. Define the global and local work sizes
-	size_t globalWorkSize[2] = { (size_t)(_width), (size_t)(_height) };  // Global size
-	size_t localWorkSize[2] = { 32, 1 };  // Local size for each workgroup
+	cl_int err; 
+	 
+	const int TILE_SIZE = 32;
+	int tileNumber =  _width / TILE_SIZE;
+	for (int tileIndex = 0; tileIndex < tileNumber; ++tileIndex) {
+		err = clSetKernelArg(kernel, 7, sizeof(float), &tileIndex);
+		if (err != CL_SUCCESS) {
+			std::cerr << "Failed to set kernel arguments" << std::endl;
+			return false;
+		}
+		// 4. Define the global and local work sizes
+		size_t globalWorkSize[2] = { (size_t)(TILE_SIZE), (size_t)(_height) };  // Global size
+		size_t localWorkSize[2] = { TILE_SIZE, 1 };  // Local size for each workgroup
 
-	// Enqueue the kernel for execution
-	err = clEnqueueNDRangeKernel(manager.getCommandQueue(), kernel, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, nullptr);
+		// Enqueue the kernel for execution
+		err |= clEnqueueNDRangeKernel(manager.getCommandQueue(), kernel, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, nullptr);
+		   
+		if (err != CL_SUCCESS) {
+			std::cerr << "Failed to enqueue kernel " << err << std::endl;
+			return false;
+		}
 
-	if (err != CL_SUCCESS) {
-		std::cerr << "Failed to enqueue kernel " << err << std::endl;
-		return false;
+		// Wait for the kernel to finish executing
+		clFinish(manager.getCommandQueue());
 	}
-
-	// Wait for the kernel to finish executing
-	clFinish(manager.getCommandQueue());
 	return true;
 	
 #else
