@@ -46,145 +46,89 @@ __kernel void computeSADCosts(__global const uchar* leftImage,   // Left image (
     }
 }
 
+#define TILE_SIZE 16  
+#define MAX_DISPARITY 64
 
-__kernel void horizontalAggregation(__global const float* costFunction,  // Input cost function (disparity costs for each pixel and disparity)
-    __global float* aggregatedCost,  // Output aggregated cost function
-    const int width,             // Width of the image
-    const int height,            // Height of the image
-    const int disparityRange,    // Disparity range
-    const float P1,              // Penalty for small disparity changes (between neighbors)
-    const float P2) {            // Penalty for large disparity changes (between neighbors)
+__kernel void horizontalAggregation(
+    __global const float* costFunction,
+    __global float* aggregatedCost,
+    const int width,
+    const int height,
+    const int disparityRange,
+    const float P1,
+    const float P2) {
 
-    // Get the current global index (parallelism across pixels)
-    int idx = get_global_id(0);
-    int y = idx;  // Row y
+    int y = get_global_id(1);
+	int local_x = get_local_id(0); // Local x-coordinate within the tile
+	int tileIndex = get_group_id(0); // Tile index
+	int group_x = tileIndex * TILE_SIZE; // Starting x-coordinate of the tile (group_x + local_x = x)
 
-    // Ensure we stay within the image boundaries
-    if (y >= height) {
-        return;
-    }
-    float minCostPrevX = FLT_MAX;
-	float minCostCurrX = FLT_MAX;
-    // Process pixels from xStart to xStart + xChunkSize
-    for (int x = 0; x < width; ++x) {
-        // Iterate over disparity values for the current pixel
-		int offsetX = (y * width + x) * disparityRange;
-		int offsetXPrev = (y * width + (x - 1)) * disparityRange;
-        minCostPrevX = minCostCurrX;
-		minCostCurrX = FLT_MAX;
+    if (y >= height) return;
 
+    __local float costTile[TILE_SIZE][MAX_DISPARITY];
+    __local float aggTile[TILE_SIZE][MAX_DISPARITY];
 
-		// Iterate over remaining disparities
-        for (int d = 0; d < disparityRange; ++d) {
-            // Initialize the minimum cost to the current cost for this pixel and disparity
-            float currCost = costFunction[offsetX + d];
-			float minCost = currCost;
-            // If we are not at the leftmost edge, we can use the left pixel's aggregated cost
-            if (x > 0) {
-                // Get the previously computed aggregated cost for the left neighbor with disparity d
-                float leftCost = aggregatedCost[offsetXPrev + d];
-
-                // Update minCost considering the left neighbor's aggregated cost
-                minCost = leftCost ;
-
-                // Look at the previous disparity (d-1) and apply penalty P1
-                if (d > 0) {
-                    float leftCostPrevDisparity = aggregatedCost[offsetXPrev + (d - 1)];
-                    minCost = fmin(minCost, leftCostPrevDisparity + P1);
-                }
-
-                // Look at the next disparity (d+1) and apply penalty P1
-                if (d < disparityRange - 1) {
-                    float leftCostNextDisparity = aggregatedCost[offsetXPrev + (d + 1)];
-                    minCost = fmin(minCost, leftCostNextDisparity + P1);
-                }
-				minCost = fmin(minCost, P2);
-				minCost = minCost + currCost - minCostPrevX;
-            }
-
-            // Store the computed aggregated cost for the current pixel and disparity
-            aggregatedCost[offsetX + d] = minCost;
-			minCostCurrX = fmin(minCostCurrX, minCost);
+    for (int d = 0; d < disparityRange; d++) {
+        int x = group_x + local_x;
+        if (x < width) {
+            costTile[local_x][d] = costFunction[(y * width + x) * disparityRange + d];
+            aggTile[local_x][d] = (local_x == 0) ? costTile[local_x][d] : 0;
         }
     }
-}
 
 
-/*
-
-#define TILE_SIZE 32  // Adjust based on hardware and occupancy
-
-__kernel void horizontalAggregation(__global const float* costFunction,  // Input cost function (disparity costs for each pixel and disparity)
-    __global float* aggregatedCost,  // Output aggregated cost function
-    const int width,             // Width of the image
-    const int height,            // Height of the image
-    const int disparityRange,    // Disparity range
-    const float P1,              // Penalty for small disparity changes (between neighbors)
-    const float P2) {            // Penalty for large disparity changes (between neighbors)
-
-    // Get the current global index (parallelism across pixels)
-    int x = get_local_id(0) + get_group_id(0) * get_local_size(0);  // Local X index in the global image
-    int y = get_group_id(1);  // Row index
-
-    // Ensure we stay within the image boundaries (avoid reading out-of-bounds)
-    if (y >= height) {
-        return;
-    }
-
-    // Handle the case where width isn't a multiple of 32
-    if (x >= width) {
-        return;  // If out of bounds in X, exit the kernel
-    }
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     float minCostPrevX = FLT_MAX;
     float minCostCurrX = FLT_MAX;
 
-    // Process pixels from xStart to xStart + xChunkSize
-    for (int col = x; col < width; col += get_local_size(0)) {
-        // Iterate over disparity values for the current pixel
-        int offsetX = (y * width + col) * disparityRange;
-        int offsetXPrev = (y * width + (col - 1)) * disparityRange;
+	// Iterate over the tiles in the row
+	// Each item in the work group executes the same code
+    for (int x = group_x; x < group_x + TILE_SIZE && x < width; x++) {
+		// group_x: The starting x-coordinate of the tile
+		// xInTile: The x-coordinate of the current pixel within the tile (between 0 and TILE_SIZE)
+        int xInTile = x - group_x; 
+        if (xInTile >= TILE_SIZE) break;  // Prevent out-of-bounds
 
+        int offsetX = (y * width + x) * disparityRange;
+
+
+        // perform aggregation but store results in the local memory
         minCostPrevX = minCostCurrX;
         minCostCurrX = FLT_MAX;
 
-        // Iterate over disparities
-        for (int d = 0; d < disparityRange; ++d) {
-            // Initialize the minimum cost to the current cost for this pixel and disparity
-            float currCost = costFunction[offsetX + d];
+        for (int d = 0; d < disparityRange; d++) {
+            float currCost = costTile[xInTile][d];
             float minCost = currCost;
 
-            // If we are not at the leftmost edge, use the left pixel's aggregated cost
-            if (col > 0) {
-                // Get the previously computed aggregated cost for the left neighbor with disparity d
-                float leftCost = aggregatedCost[offsetXPrev + d];
-
-                // Update minCost considering the left neighbor's aggregated cost
+            if (xInTile > 0) {
+                float leftCost = aggTile[xInTile - 1][d];
                 minCost = leftCost;
 
-                // Look at the previous disparity (d-1) and apply penalty P1
                 if (d > 0) {
-                    float leftCostPrevDisparity = aggregatedCost[offsetXPrev + (d - 1)];
-                    minCost = fmin(minCost, leftCostPrevDisparity + P1);
+                    minCost = fmin(minCost, aggTile[xInTile - 1][d - 1] + P1);
                 }
-
-                // Look at the next disparity (d+1) and apply penalty P1
                 if (d < disparityRange - 1) {
-                    float leftCostNextDisparity = aggregatedCost[offsetXPrev + (d + 1)];
-                    minCost = fmin(minCost, leftCostNextDisparity + P1);
+                    minCost = fmin(minCost, aggTile[xInTile - 1][d + 1] + P1);
                 }
-
                 minCost = fmin(minCost, P2);
                 minCost = minCost + currCost - minCostPrevX;
             }
 
-            // Store the computed aggregated cost for the current pixel and disparity
-            aggregatedCost[offsetX + d] = minCost;
+            aggTile[xInTile][d] = minCost;
             minCostCurrX = fmin(minCostCurrX, minCost);
         }
     }
+    // After processing the tile, store results to global memory
+    // Only the thread responsible for the current pixel writes to global memory
+	int xx = group_x + local_x;
+    if (local_x < TILE_SIZE && xx < width) {
+        for (int d = 0; d < disparityRange; d++) {
+			int offsetX = (y * width + xx) * disparityRange;
+            aggregatedCost[offsetX + d] = aggTile[local_x][d];
+        }
+    }
 }
-*/
 
 
 __kernel void computeBestDisparity(__global float* aggregatedCost,   // Input aggregated cost function

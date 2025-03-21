@@ -36,23 +36,26 @@ bool HorizontalAggregationKernel::setArguments(cl_mem costBuffer,
 
 bool HorizontalAggregationKernel::runKernel(size_t globalSize)
 {
-	return Kernel::runKernel(globalSize);
-	/*
+#ifndef DISABLE_KERNEL
 	cl_int err;
 	// 4. Define the global and local work sizes
 	size_t globalWorkSize[2] = { (size_t)(_width), (size_t)(_height) };  // Global size
-	size_t localWorkSize[2] = { 32, 1 };  // Local size for each workgroup
+	size_t localWorkSize[2] = { 16, 1 };  // Local size for each workgroup
 
 	// Enqueue the kernel for execution
 	err = clEnqueueNDRangeKernel(manager.getCommandQueue(), kernel, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, nullptr);
 
 	if (err != CL_SUCCESS) {
-		std::cerr << "Failed to enqueue kernel " << err << std::endl;
+		std::cerr << "Failed to enqueue kern el " << err << std::endl;
 		return false;
 	}
 
 	// Wait for the kernel to finish executing
 	clFinish(manager.getCommandQueue());
 	return true;
-	*/
+	
+#else
+
+	return Kernel::runKernel(globalSize);
+#endif	
 }

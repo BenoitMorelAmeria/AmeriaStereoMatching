@@ -72,7 +72,7 @@ void OpenCLDeviceSelector::printDeviceInfo() const {
     }
 
     char buffer[1024];
-    cl_ulong memorySize;
+    cl_ulong memorySize, maxAllocSize;
     cl_uint computeUnits;
     size_t maxWorkGroupSize;
 
@@ -85,11 +85,13 @@ void OpenCLDeviceSelector::printDeviceInfo() const {
     clGetDeviceInfo(selectedDevice, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(memorySize), &memorySize, nullptr);
     std::cout << "  Global Memory: " << (memorySize / (1024 * 1024)) << " MB" << std::endl;
 
+    clGetDeviceInfo(selectedDevice, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(maxAllocSize), &maxAllocSize, nullptr);
+    std::cout << "  Max Alloc Size: " << (maxAllocSize / (1024 * 1024)) << " MB" << std::endl;
+
     clGetDeviceInfo(selectedDevice, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(computeUnits), &computeUnits, nullptr);
     std::cout << "  Compute Units: " << computeUnits << std::endl;
 
     clGetDeviceInfo(selectedDevice, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, nullptr);
     std::cout << "  Max Work Group Size: " << maxWorkGroupSize << std::endl;
-
 
 }

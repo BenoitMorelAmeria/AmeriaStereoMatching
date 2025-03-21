@@ -39,14 +39,20 @@ int main() {
 	int frameCounter = 0; 
 	auto start = std::chrono::high_resolution_clock::now();
 
-	std::string root = "C:\\Users\\bmorel\\Desktop\\stream\\captures\\capture500_500";
-	std::string leftPath = root + "\\" + "output_30_left.png";
-	std::string rightPath = root + "\\" + "output_30_right.png";
+	//std::string root = "C:\\Users\\bmorel\\Desktop\\stream\\captures\\capture500_500"; 
+	std::string root = "C:\\Users\\bmorel\\Desktop\\stream\\captures\\capture1280_1024";
+	//std::string leftPath = root + "\\" + "output_30_left.png";
+	//std::string rightPath = root + "\\" + "output_30_right.png";
+	std::string leftPath = root + "\\" + "output_17_left.png";
+	std::string rightPath = root + "\\" + "output_17_right.png";
 	cv::Mat left = cv::imread(leftPath, cv::IMREAD_GRAYSCALE);
 	cv::Mat right = cv::imread(rightPath, cv::IMREAD_GRAYSCALE);
-	cv::Mat disparity = cv::Mat(left.rows, left.cols, CV_16U);
-	int width = left.cols;
-	int height = left.rows;
+	   
+	int width = 512;
+	int height = 512;
+	cv::resize(left, left, cv::Size(width, height));
+	cv::resize(right, right, cv::Size(width, height));
+	cv::Mat disparity = cv::Mat(height, width, CV_16U);
 	auto leftBuffer = createOpenCLBufferFromMat(left, manager.getContext(), manager.getCommandQueue(), false);
 	auto rightBuffer = createOpenCLBufferFromMat(right, manager.getContext(), manager.getCommandQueue(), false);
 	auto costBuffer = createCostsOpenCLBuffer(width * height * maxDisparity, manager.getContext(), manager.getCommandQueue());
@@ -56,7 +62,7 @@ int main() {
 	SADCostKernel costKernel(manager);
 	HorizontalAggregationKernel horizontalAggregationKernel(manager);
 	ComputeBestDisparityKernel bestDisparityKernel(manager);
-
+	 
 	// create opencv window with sliders
 	int P1 = 100;
 	int P2 = 1000;
@@ -85,7 +91,7 @@ int main() {
 		  
 		  
 		bool debug = true;  
-
+		  
 		if (debug) {  
 			cv::Mat disparityU8;
 			disparity.convertTo(disparityU8, CV_8U, 1.0f / 16.0f);
@@ -99,15 +105,15 @@ int main() {
 			//cv::imshow("left", left);
 			cv::waitKey(1);  // Wait 30 ms (or any appropriate delay)
 		}
-
-
+     		 
+		   
 		// update FPS and print it after 1sec
-		frameCounter++;
+		frameCounter++;  
 		auto end = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 		if (duration > 1000) {
 			std::cout << "FPS: " << frameCounter << std::endl;
-			frameCounter = 0;
+			frameCounter = 0; 
 			start = std::chrono::high_resolution_clock::now();
 		}
 	}
