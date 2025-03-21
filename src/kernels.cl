@@ -46,7 +46,7 @@ __kernel void computeSADCosts(__global const uchar* leftImage,   // Left image (
     }
 }
 
-#define TILE_SIZE 16  
+#define TILE_SIZE 32  
 #define MAX_DISPARITY 64
 
 __kernel void horizontalAggregation(
@@ -67,6 +67,8 @@ __kernel void horizontalAggregation(
 
     __local float costTile[TILE_SIZE][MAX_DISPARITY];
     __local float aggTile[TILE_SIZE][MAX_DISPARITY];
+
+	__local float minCostSynchronizationBuffer[TILE_SIZE];
 
     for (int d = 0; d < disparityRange; d++) {
         int x = group_x + local_x;
@@ -93,11 +95,15 @@ __kernel void horizontalAggregation(
         int offsetX = (y * width + x) * disparityRange;
 
 
+        int disparityStart = (get_local_id(0) * disparityRange) / get_local_size(0);
+        int disparityEnd = ((get_local_id(0) + 1) * disparityRange) / get_local_size(0);
+
+
         // perform aggregation but store results in the local memory
         minCostPrevX = minCostCurrX;
         minCostCurrX = FLT_MAX;
 
-        for (int d = 0; d < disparityRange; d++) {
+        for (int d = disparityStart; d < disparityEnd; d++) {
             float currCost = costTile[xInTile][d];
             float minCost = currCost;
 
@@ -118,7 +124,17 @@ __kernel void horizontalAggregation(
             aggTile[xInTile][d] = minCost;
             minCostCurrX = fmin(minCostCurrX, minCost);
         }
+        minCostSynchronizationBuffer[local_x] = minCostCurrX;
+        // min reduction of minCostCurrX
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int i = 0; i < TILE_SIZE; i++) {
+            minCostCurrX = fmin(minCostCurrX, minCostSynchronizationBuffer[i]);
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
     }
+
+
+
     // After processing the tile, store results to global memory
     // Only the thread responsible for the current pixel writes to global memory
 	int xx = group_x + local_x;

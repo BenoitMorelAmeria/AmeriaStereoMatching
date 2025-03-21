@@ -33,12 +33,12 @@ int main() {
 		std::cerr << "Failed to initialize OpenCL manager!" << std::endl;
 		return 1;
 	}
-
+	 
 
 	// FPS counter
 	int frameCounter = 0; 
 	auto start = std::chrono::high_resolution_clock::now();
-
+	  
 	//std::string root = "C:\\Users\\bmorel\\Desktop\\stream\\captures\\capture500_500"; 
 	std::string root = "C:\\Users\\bmorel\\Desktop\\stream\\captures\\capture1280_1024";
 	//std::string leftPath = root + "\\" + "output_30_left.png";
@@ -69,6 +69,7 @@ int main() {
 	cv::namedWindow("parameters", cv::WINDOW_AUTOSIZE);
 	cv::createTrackbar("P1", "parameters", &P1, 800);
 	cv::createTrackbar("P2", "parameters", &P2, 2000);
+	cv::createTrackbar("halfWindowSize", "parameters", &halfWindowSize, 6);
 
 	while (true) {
 		 
@@ -90,7 +91,7 @@ int main() {
 		fillMatFromOpenCLBuffer(disparity, disparityBuffer, manager.getContext(), manager.getCommandQueue());
 		  
 		  
-		bool debug = true;  
+		bool debug = false;  
 		  
 		if (debug) {  
 			cv::Mat disparityU8;
