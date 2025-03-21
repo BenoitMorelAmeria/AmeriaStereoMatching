@@ -87,8 +87,8 @@ int main()
 	createFloatTrackbar("uniquenessRatio", "parameters", uniquenessRatio, 1.0f);
 	 
 	while (true) {
-		  
-
+		          
+		    
 		// update trackbar values 
 		P1 = cv::getTrackbarPos("P1", "parameters");
 		P2 = cv::getTrackbarPos("P2", "parameters"); 
@@ -107,10 +107,10 @@ int main()
 
 		fillMatFromOpenCLBuffer(disparity, disparityBuffer, manager.getContext(), manager.getCommandQueue());
 		   
-		  
+		    
 		bool debug = true;  
-		  
-		if (debug) {  
+		    
+		if (debug) {    
 			cv::Mat disparityFloat;
 			disparity.convertTo(disparityFloat, CV_32F);
 
