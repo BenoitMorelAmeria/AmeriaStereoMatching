@@ -10,6 +10,7 @@ public:
 		cl_mem disparityBuffer,
 		int width,
 		int height,
-		int maxDisparity);
+		int maxDisparity,
+		float uniquenessRatio);
 
 };

@@ -13,13 +13,25 @@
 #include <sstream>
 
 
+float createFloatTrackbar(const std::string& name, const std::string& windowName, float& value, float maxValue) {
+	
+	int maxValueInt = maxValue * 100;
+	int valueInt = value * 100;
+	cv::createTrackbar(name, windowName, &valueInt, maxValueInt);
+	return valueInt / 100.0f;
+}
 
 
-int main() {
+float getFloatTrackBarPos(const std::string& name, const std::string& windowName) {
+	return cv::getTrackbarPos(name, windowName) / 100.0f;
+}
 
+
+int main() 
+{
 
 	int maxDisparity = 64;
-	int halfWindowSize = 2;
+
 
 	OpenCLDeviceSelector selector;
 	if (!selector.selectBestDevice()) {
@@ -66,10 +78,13 @@ int main() {
 	// create opencv window with sliders
 	int P1 = 100;
 	int P2 = 1000;
+	int halfWindowSize = 2;
+	float uniquenessRatio = 0.95;
 	cv::namedWindow("parameters", cv::WINDOW_AUTOSIZE);
 	cv::createTrackbar("P1", "parameters", &P1, 800);
 	cv::createTrackbar("P2", "parameters", &P2, 2000);
 	cv::createTrackbar("halfWindowSize", "parameters", &halfWindowSize, 6);
+	createFloatTrackbar("uniquenessRatio", "parameters", uniquenessRatio, 1.0f);
 
 	while (true) {
 		 
@@ -77,6 +92,8 @@ int main() {
 		// update trackbar values 
 		P1 = cv::getTrackbarPos("P1", "parameters");
 		P2 = cv::getTrackbarPos("P2", "parameters"); 
+		halfWindowSize = cv::getTrackbarPos("halfWindowSize", "parameters");
+		uniquenessRatio = getFloatTrackBarPos("uniquenessRatio", "parameters");
 
 		costKernel.setArguments(leftBuffer, rightBuffer, costBuffer, width, height, halfWindowSize, maxDisparity);
 		costKernel.runKernel(left.cols * left.rows);
@@ -85,13 +102,13 @@ int main() {
 		horizontalAggregationKernel.runKernel(left.rows);
 		
 
-		bestDisparityKernel.setArguments(aggregatedBuffer, disparityBuffer, width, height, maxDisparity);
+		bestDisparityKernel.setArguments(aggregatedBuffer, disparityBuffer, width, height, maxDisparity, uniquenessRatio);
 		bestDisparityKernel.runKernel(left.cols * left.rows);
 
 		fillMatFromOpenCLBuffer(disparity, disparityBuffer, manager.getContext(), manager.getCommandQueue());
+		   
 		  
-		  
-		bool debug = false;  
+		bool debug = true;  
 		  
 		if (debug) {  
 			cv::Mat disparityU8;

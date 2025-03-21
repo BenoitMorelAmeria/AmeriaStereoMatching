@@ -10,15 +10,18 @@ bool ComputeBestDisparityKernel::setArguments(cl_mem aggregatedCosts,
 	cl_mem disparityBuffer,
 	int width,
 	int height,
-	int maxDisparity)
+	int maxDisparity,
+	float uniquenessRatio)
 {
 	cl_int err;
 	// Set the kernel arguments
-	err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &aggregatedCosts);
-	err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &disparityBuffer);
-	err |= clSetKernelArg(kernel, 2, sizeof(int), &width);
-	err |= clSetKernelArg(kernel, 3, sizeof(int), &height);
-	err |= clSetKernelArg(kernel, 4, sizeof(int), &maxDisparity);
+	int i = 0;
+	err = clSetKernelArg(kernel, i++, sizeof(cl_mem), &aggregatedCosts);
+	err |= clSetKernelArg(kernel, i++, sizeof(cl_mem), &disparityBuffer);
+	err |= clSetKernelArg(kernel, i++, sizeof(int), &width);
+	err |= clSetKernelArg(kernel, i++, sizeof(int), &height);
+	err |= clSetKernelArg(kernel, i++, sizeof(int), &maxDisparity);
+	err |= clSetKernelArg(kernel, i++, sizeof(float), &uniquenessRatio);
 	if (err != CL_SUCCESS) {
 		std::cerr << "Failed to set kernel arguments" << std::endl;
 		return false;
